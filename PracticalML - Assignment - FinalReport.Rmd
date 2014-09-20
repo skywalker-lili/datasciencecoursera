@@ -6,7 +6,7 @@ date: "Wednesday, September 17, 2014"
 ---
 
 ## Summary
-In this prediction model, I combined 3 classifiers: random forests, linear discriminant analysis and support vector machines by majoraity voting (voting is realized by using random forest again). 
+In this prediction model, I combined 3 classifiers: random forests, linear discriminant analysis and support vector machines by majoraity voting (voting is realized by using random forest again).  The prediction of prediction assignment yields 100% correction.
 
 The combined model yield an accuracy of 96.73% on a validation data set, whose 1224 observations are randomly selected from the training data set provided by the assignment instruction.
 
@@ -202,11 +202,9 @@ df.test <- data.frame(rf=pre.test.rf, svm=pre.test.svm, lda=pre.test.lda)
 result.test.comb <- predict(md.comb, df.test)
 answers <- as.character(result.test.comb)
 ```
-Answers are: "B" "A" "B" "A" "A" "E" "D" "B" "A" "A" "B" "C" "B" "A" "E" "E" "A" "B" "B" "B".
+Answers are: "B" "A" "B" "A" "A" "E" "D" "B" "A" "A" "B" "C" "B" "A" "E" "E" "A" "B" "B" "B". 20 predictions are all correct!.
 
-Thanks for your patience. Let's hope I am not too wrong about this!
-
-Bye and have a nice day!  
+Thanks for your patience. Bye and have a nice day!  
 
 ## Appendix
 

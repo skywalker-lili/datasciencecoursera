@@ -60,7 +60,7 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 
 <div id="summary" class="section level2">
 <h2>Summary</h2>
-<p>In this prediction model, I combined 3 classifiers: random forests, linear discriminant analysis and support vector machines by majoraity voting (voting is realized by using random forest again).</p>
+<p>In this prediction model, I combined 3 classifiers: random forests, linear discriminant analysis and support vector machines by majoraity voting (voting is realized by using random forest again). The prediction of prediction assignment yields 100% correction.</p>
 <p>The combined model yield an accuracy of 96.73% on a validation data set, whose 1224 observations are randomly selected from the training data set provided by the assignment instruction.</p>
 <p>The process of exploring and combining classifers is as followings:<br />1. train 5 classifers independently on the training set.<br />2. evaluate the predicition performance and efficiency of 5 classifiers and pick the best combination of 3 for the combined model.<br />3. apply 3 classifers on testing set. therefore for each observation in the testing set, there are 3 predictions on the target value - classe. Then train the combined model, using 3 predictions as predictors and the real value of classes as outcome. Training method is random forest.<br />4. test the combined model on validation set and see its perfomance.</p>
 <p>The 5 models used in training processes are:<br />1. random forests: caret package - train(…, method=“rf”))<br />2. linear discriminant analysis: caret package - train(…, method=“lda”)<br />3. support vector machines: e1071 package: svm(…)<br />4. boosting: caret package - train(…, method=“gbm”))<br />5. classification tree: caret package - train(…, method=“rpart”)</p>
@@ -212,9 +212,8 @@ pre.test.svm &lt;- predict(md.svm, test)
 df.test &lt;- data.frame(rf=pre.test.rf, svm=pre.test.svm, lda=pre.test.lda)
 result.test.comb &lt;- predict(md.comb, df.test)
 answers &lt;- as.character(result.test.comb)</code></pre>
-<p>Answers are: “B” “A” “B” “A” “A” “E” “D” “B” “A” “A” “B” “C” “B” “A” “E” “E” “A” “B” “B” “B”.</p>
-<p>Thanks for your patience. Let’s hope I am not too wrong about this!</p>
-<p>Bye and have a nice day!</p>
+<p>Answers are: “B” “A” “B” “A” “A” “E” “D” “B” “A” “A” “B” “C” “B” “A” “E” “E” “A” “B” “B” “B”. 20 predictions are all correct!.</p>
+<p>Thanks for your patience. Bye and have a nice day!</p>
 </div>
 </div>
 <div id="appendix" class="section level2">
