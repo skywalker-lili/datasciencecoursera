@@ -1,0 +1,245 @@
+---
+title: "Weight Lifting Assignment"
+author: "Jingchen LI"
+email: "skywalker.ljc@gmail.com"
+date: "Wednesday, September 17, 2014"
+---
+
+## Summary
+In this prediction model, I combined 3 classifiers: random forests, linear discriminant analysis and support vector machines by majoraity voting (voting is realized by using random forest again). 
+
+The combined model yield an accuracy of 96.73% on a validation data set, whose 1224 observations are randomly selected from the training data set provided by the assignment instruction.
+
+The process of exploring and combining classifers is as followings:  
+1. train 5 classifers independently on the training set.  
+2. evaluate the predicition performance and efficiency of 5 classifiers and pick the best combination of 3 for the combined model.  
+3. apply 3 classifers on testing set. therefore for each observation in the testing set, there are 3 predictions on the target value - classe. Then train the combined model, using 3 predictions as predictors and the real value of classes as outcome. Training method is random forest.  
+4. test the combined model on validation set and see its perfomance.
+
+The 5 models used in training processes are:  
+1. random forests: caret package - train(..., method="rf"))  
+2. linear discriminant analysis: caret package - train(..., method="lda")  
+3. support vector machines: e1071 package: svm(...)  
+4. boosting: caret package - train(..., method="gbm"))  
+5. classification tree: caret package - train(..., method="rpart")  
+
+The model predicts the test data set has classe values as follows:
+"B" "A" "B" "A" "A" "E" "D" "B" "A" "A" "B" "C" "B" "A" "E" "E" "A" "B" "B" "B"  
+
+### data cleanning
+The problems involves many sensor data. Usually sensor data are pretty corrupted; so I expect to have some data clean and variable selection to do.
+
+In all, the data has these defects: NAs, NaNs, other meaningless values, and irrelativant variables. The following codes show how to correct them, not only in the training data set, but also in test data set.
+
+##### load data
+```{r,results='hide'}
+train <- read.csv("pml-training.csv")
+test <- read.csv("pml-testing.csv")
+```
+
+##### check the data structure between training and test data set. Turns out they are same except the last variable. Therefore, I can apply the same cleaning rule to training and test set.
+```{r, results="hide"}
+namescompa <- data.frame(names(train), names(test), stringsAsFactors=FALSE)
+which(namescompa[,1] != namescompa[,2])
+```
+
+##### remove variables with too many NAs
+```{r, results='hide'}
+fun.na <- function(x){sum(is.na(x))}
+nas <- apply(train, c(2), fun.na)
+train <- train[,-which(nas>0)]
+test <- test[,-which(nas>0)]
+```
+
+##### remove variables with NaNs. These codes show that there are no variables with NaNs. And there is no such variables
+```{r, results="hide"}
+fun.nan <- function(x){sum(is.nan(x))}
+nans <- apply(train, c(2), fun.nan)
+sum(nans >0)
+```
+
+##### by looking at the remaining data, I find blanks are most annoying and meanless values are blanks. Following codes aimed at removing variables with too many blanks
+```{r, results='hide'}
+fun.blank <- function(x) {sum(x == c(""))}
+blank <- apply(train, c(2), fun.blank)
+train <- train[,-which(blank > 0)]; test <- test[,-which(blank > 0)]
+```
+
+##### perform near-zero variance analysis to get rid of variables with near zero variance. And the analysis show there are no such variables.
+```{r, results='hide'}
+library(caret)
+set.seed(123)
+numer <- c(); for (i in 1:length(train[1,])) {numer[i] <- is.numeric(train[1,i])}
+train.numer <- train[,numer]
+integer <- c(); for (i in 1:length(train[1,])) {integer[i] <- is.integer(train[1,i])}
+train.integer <- train[,integer]
+near0 <- nearZeroVar(train.numer, saveMetrics=FALSE);near0
+near0 <- nearZeroVar(train.integer, saveMetrics=FALSE);near0
+```
+
+##### remove the variables that are unavailable in real-world application of this prediction model. Including them will only reduce the applicability of the model. Selection of the variables based on meaning of the variables.
+```{r, results='hide'}
+training <- training[,-c(1:7)];testing <- testing[,-c(1:7)]; test <- test[,-c(1:7)]
+```
+ 
+ 
+### modeling building
+First, I explore 5 models based on random forests, linear discriminant model, boosting, support vector machines and trees on a small part of the training data just to see their accuracy and time consumption.
+
+Exploration show that for random forest and boosting, principle components analysis (PCA) must be applied to reduce time consumption.
+
+Then, I preprocess training data using PCA method and then apply preporcessed data for random forests and boosting, while apply original data for linear discriminant model, support vector machine and tree model. 5 models are evaluated based on their accuracy and efficiency, as well as their ability to compensate each other on predicting particular target values.
+
+Finally in this phase, I pick 3 models: random forests, boosting and support vector machines as the models used to build combined model.
+
+(For the simplicity of reports, the exploratory code are in the Appendix section in the end of the report. Following code will directly starts from applying 5 models on the original training data.)
+
+##### preprocess data using pca. PCA threshold are selected at 80% to keep a balance of number of variables, therefore efficiency, and amount of information retained.
+```{r, cache=TRUE, results='hide'}
+set.seed(123)
+index.training <- createDataPartition(train$classe, p=3/4, list=FALSE)
+training <- train[index.training,]; testing <- train[-index.training,]
+for (i in 1:52) {testing[,i] <- as.numeric(testing[,i])}
+for (i in 1:52) {training[,i] <- as.numeric(training[,i])}
+for (i in 1:52) {test[,i] <- as.numeric(test[,i])}
+training.prep.pred <- preProcess(training[,1:52], method = c("pca"), thresh=0.8)
+testing.prep <- predict(training.prep.pred, testing[,1:52])
+rm(train.integer, train.numer, train.part)
+training.pred <- predict(training.prep.pred, training[,1:52])
+```
+
+
+Normally I should run the training codes. But for time saving purpose (some of them take 2000 seconds), **codes won't be evaluated here**. But to validate them, delete the "eval=FALSE" sentence and run the code.
+##### train random forests model
+```{r, cache=TRUE, results="hide", eval=FALSE}
+system.time(md.rf <- train(training$classe~., data=training.pred, method="rf"))
+pre.rf <- predict(md.rf, testing.prep)
+result.rf <- confusionMatrix(pre.rf, testing$classe)
+```
+user time: 2002 seconds; accuracy: 95.74%.
+
+##### train boosting model (gbm)
+```{r, cache=TRUE, results='hide', eval=FALSE}
+system.time(md.gbm <- train(training$classe~., data=training.pred, method="gbm",
+                            verbose = FALSE))
+pre.gbm <- predict(md.gbm, testing.prep)
+result.gbm <- confusionMatrix(pre.gbm, testing$classe)
+```
+user time: 1141.9 seconds; accuracy: 79.4%.
+
+##### train linear discriminant analysis model (lda)
+```{r, cache=TRUE, results='hide', eval=FALSE}
+system.time(md.lda <- train(classe~., data=training, method="lda"))
+pre.lda <- predict(md.lda, testing)
+result.lda <- confusionMatrix(pre.lda, testing$classe)
+```
+user time: 53.2 seconds; accuracy: 70.13%.
+
+##### train support vector machine model
+```{r, cache=TRUE, results="hide", eval=FALSE}
+system.time(md.svm <- svm(classe~., data=training))
+pre.svm <- predict(md.svm, testing)
+result.svm <- confusionMatrix(pre.svm, testing$classe)
+```
+user time: 73.6 seconds; accuracy: 94.35%.
+
+##### train classification tree model (rpart)
+```{r, cache=TRUE, results='hide', eval=FALSE}
+system.time(md.rpart <- train(classe~., data=training, method="rpart"))
+pre.rpart <- predict(md.rpart, testing)
+result.rpart <- confusionMatrix(pre.rpart, testing$classe)
+```
+user time: 101.3 seconds; accuracy: 48.8%.
+
+Since random forests and svm classifiers are overwhelming in terms of accuracy, I decide to keep them in the combined model. I prefer combining 3 models into final combined model because, first including all 5 classifiers into combined model won't improve accuracy significantly due to inaccuracy of rest 3 models; second a combined model need to have odd number of compostie model to work.
+
+Next step is to find the one model in the rest three that compensate random forest and svm the most.
+
+```{r, echo=FALSE}
+list("performance of random forest model" = result.rf$table,
+     "performance of support vector machine model" = result.svm$table)
+```
+Abotve tables of "prediction VS reality"" of 2 models tell that both models made relatively high prediction error on "classe D", which they intended to predict as "classe C". This finding encourages to pick a model that correct this mistake most to be the third model in the combined model.
+
+##### how much "classe D mistaken as C" can be corrected if incorprating each of the rest model
+```{r, echo=FALSE}
+lda <- length(which(testing$classe=="D" & pre.rf=="D" & pre.svm=="C" & pre.lda=="D")) +length(which(testing$classe=="D" & pre.rf=="C" & pre.svm=="D" & pre.lda=="D"))
+gbm <- length(which(testing$classe=="D" & pre.rf=="D" & pre.svm=="C" & pre.gbm=="D"))+length(which(testing$classe=="D" & pre.rf=="C" & pre.svm=="D" & pre.gbm=="D"))
+rpart <- length(which(testing$classe=="D" & pre.rf=="D" & pre.svm=="C" & pre.rpart=="D"))+length(which(testing$classe=="D" & pre.rf=="C" & pre.svm=="D" & pre.rpart=="D"))
+data.frame(lda,gbm,rpart)
+```
+
+The results show that "lda" has the best improvement if combined with random forest and svm. Combined model is therefore built, upon the predictions from random forest, support vector machine and linear discriminant analysis and combined using majority voting realized by random forests.
+
+##### Test the combined model on a validation data set and compare its performance with 3 of its composite models (eval=FALSE to save time)
+```{r, echo=FALSE, cache=TRUE, eval=FALSE}
+df <- data.frame(classe=testing$classe, rf=pre.rf, svm=pre.svm, lda=pre.lda)
+index.testing2 <- createDataPartition(df$classe, p=3/4, list=FALSE)
+df.testing2 <- df[index.testing2,]
+df.vali <- df[-index.testing2,]
+system.time(md.comb <- train(classe~., data=df.testing2, method="rf"))
+pre.vali.comb <- predict(md.comb, df.vali)
+result.vali.comb <- confusionMatrix(pre.vali.comb, df.vali$classe)
+pre.rf2 <- pre.rf[-index.testing2]
+result.rf2 <- confusionMatrix(pre.rf2, df.vali$classe)
+pre.svm2 <- pre.svm[-index.testing2]
+result.svm2 <- confusionMatrix(pre.svm2, df.vali$classe)
+pre.lda2 <- pre.lda[-index.testing2]
+result.lda2 <- confusionMatrix(pre.lda2, df.vali$classe)
+result.comp<- list("combined"=result.vali.comb$overall[1:2], "random forests"=result.rf2$overall[1:2], "support vector machine"=result.svm2$overall[1:2], "linear discriminant analysis"=result.lda2$overall[1:2])
+result.comp
+```
+The combined model does have better accuracy.  
+
+### Apply the combined model on real test data set (eval=FALSE to save time)
+```{r, cache=TRUE, eval=FALSE}
+test.pred <- predict(training.prep.pred, test[,1:52])
+test.lda <- test[,1:52] ## this is the PCA preprocess for random forest and svm
+pre.test.rf <- predict(md.rf, test.pred)
+pre.test.lda <- predict(md.lda, test.lda)
+pre.test.svm <- predict(md.svm, test)
+df.test <- data.frame(rf=pre.test.rf, svm=pre.test.svm, lda=pre.test.lda)
+result.test.comb <- predict(md.comb, df.test)
+answers <- as.character(result.test.comb)
+```
+Answers are: "B" "A" "B" "A" "A" "E" "D" "B" "A" "A" "B" "C" "B" "A" "E" "E" "A" "B" "B" "B".
+
+Thanks for your patience. Let's hope I am not too wrong about this!
+
+Bye and have a nice day!  
+
+## Appendix
+
+### exploration on the 5 models using a small part of training data
+
+##### create a part of the training data set.
+```{r, eval=FALSE, results='hide'}
+index <- sample(length(train[,1]), size=250)
+train.part <- train[index,]
+```
+
+##### random forests
+```{r, eval=FALSE, cache=TRUE}
+system.time(md.rf <- train(classe~., data=train.part, method="rf"))
+```
+
+##### linear discriminant model
+```{r, eval=FALSE, cache=TRUE}
+system.time(md.lda <- train(classe~., data=train.part, method="lda"))
+```
+
+##### boosting: gbm method
+```{r, eval=FALSE, cache=TRUE}
+system.time(md.gbm <- train(classe~., data=train.part, method="gbm", verbose=FALSE))
+```
+
+##### support vector machine
+```{r, eval=FALSE, cache=TRUE}
+system.time(md.svm <- svm(classe~., data=train.part))
+```
+
+##### trees: rpart method
+```{r, eval=FALSE, cache=TRUE}
+system.time(md.rpart <- train(classe~., data=train.part, method="rpart"))
+```
+
